@@ -1,33 +1,19 @@
 package it.unina.proveappengine;
 
-import it.unina.model.Chromosome;
-import it.unina.model.TestCaseChromosome;
-import it.unina.model.TestCaseInt;
 import it.unina.tools.datastore.ByteArrayDataClass;
 import it.unina.tools.datastore.DatastoreLoadAndSave;
 import it.unina.tools.datastore.DatastoreLoadAndSaveWithTransaction;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.URL;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
-import javax.servlet.ServletContext;
-import javax.servlet.http.*;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
-import org.datanucleus.store.appengine.DatastoreManager;
-
-import com.google.appengine.api.datastore.DatastoreService;
-import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
-import com.google.appengine.api.datastore.EntityNotFoundException;
 import com.google.appengine.api.datastore.Key;
-import com.google.appengine.api.datastore.KeyFactory;
 
 @SuppressWarnings("serial")
 public class ProveAppengineServlet extends HttpServlet {
@@ -36,33 +22,42 @@ public class ProveAppengineServlet extends HttpServlet {
 		resp.setContentType("text/plain");
 		resp.getWriter().println("Hello, world");
 		
-		ByteArrayDataClass b=new ByteArrayDataClass(new byte[10], "cazzo");
-//		b.setNumRows(2);
-		ByteArrayDataClass b2=new ByteArrayDataClass(new byte[10], "cazzo");
+	
+//		b.setNOumRows(2);
+//		ByteArrayDataClass b2=new ByteArrayDataClass(new byte[10], "cazzo");
 //		System.out.println(b.getKey());
-		
 		List<ByteArrayDataClass> lb= new LinkedList<ByteArrayDataClass>();
-		lb.add(b);
-		lb.add(b2);
+		for(int i=0;i<1000;i++){
+			ByteArrayDataClass b=new ByteArrayDataClass(new byte[10], "cazzo");
+			lb.add(b);
+		}
+		
+		
+//		lb.add(b2);
 		DatastoreLoadAndSave s=new DatastoreLoadAndSave();
 		DatastoreLoadAndSaveWithTransaction s2=new DatastoreLoadAndSaveWithTransaction();
 		s.saveAll(lb);
-				
-		s2.openTransaction();
-		try{
-			ByteArrayDataClass b3=s2.loadObjectById(ByteArrayDataClass.class, b.getKey().getId());
-			
-//			ByteArrayDataClass b4=s2.loadObjectById(ByteArrayDataClass.class, b2.getKey().getId());
-			
-			System.out.println(b3.getKey());
-//			System.out.println(b4.getKey());
-			
-			s2.commitTransaction();
-		}finally{
-			s2.rollbackTransaction();
-		}
-		
+//				
+//		s2.openTransaction();
+//		try{
+//			ByteArrayDataClass b3=s2.loadObjectById(ByteArrayDataClass.class, b.getKey().getId());
+//			
+////			ByteArrayDataClass b4=s2.loadObjectById(ByteArrayDataClass.class, b2.getKey().getId());
+//			
+//			System.out.println(b3.getKey());
+////			System.out.println(b4.getKey());
+//			
+//			s2.commitTransaction();
+//		}finally{
+//			s2.rollbackTransaction();
+//		}
+//		
 //		byte[] data=s.load("prova");
+		
+		lb = s.loadWithGenerics(null, ByteArrayDataClass.class);
+		System.out.println(lb.get(0));
+		
+		System.out.println(lb.size());
 		
 		
 		
@@ -137,23 +132,23 @@ public class ProveAppengineServlet extends HttpServlet {
 	}
 	
 	
-	public Chromosome convertEntityToChromosome(Entity ent){
-		
-		TestCaseChromosome realType= new TestCaseChromosome();
-		
-		
-		realType.setKey((Key)ent.getProperty("key"));
-		realType.setFitness((Double)ent.getProperty("fitness"));
-		realType.setGenerationId(((Long)ent.getProperty("generationId")).intValue());
-		realType.setGenes((List<TestCaseInt>)ent.getProperty("genes"));
-		realType.setIslandId(((Long)ent.getProperty("islandId")).intValue());
-		realType.setMutationProbabiliy((Double)ent.getProperty("mutationProbability"));
-		realType.setTestSessionContainerAfterTestBytes((byte[])ent.getProperty("sessionContainerAfterTestBytes"));
-		realType.setTestSessionContainerFileName((String)ent.getProperty("testSessionContainerFileName"));
-		realType.setTestSessionContainerId((String)ent.getProperty("testSessionContainerId"));
-		
-			
-		return realType;
-	}
+//	public Chromosome convertEntityToChromosome(Entity ent){
+//		
+//		TestCaseChromosome realType= new TestCaseChromosome();
+//		
+//		
+//		realType.setKey((Key)ent.getProperty("key"));
+//		realType.setFitness((Double)ent.getProperty("fitness"));
+//		realType.setGenerationId(((Long)ent.getProperty("generationId")).intValue());
+//		realType.setGenes((List<TestCaseInt>)ent.getProperty("genes"));
+//		realType.setIslandId(((Long)ent.getProperty("islandId")).intValue());
+//		realType.setMutationProbabiliy((Double)ent.getProperty("mutationProbability"));
+//		realType.setTestSessionContainerAfterTestBytes((byte[])ent.getProperty("sessionContainerAfterTestBytes"));
+//		realType.setTestSessionContainerFileName((String)ent.getProperty("testSessionContainerFileName"));
+//		realType.setTestSessionContainerId((String)ent.getProperty("testSessionContainerId"));
+//		
+//			
+//		return realType;
+//	}
 	
 }
