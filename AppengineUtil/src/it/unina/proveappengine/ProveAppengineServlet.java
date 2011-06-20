@@ -27,7 +27,7 @@ public class ProveAppengineServlet extends HttpServlet {
 //		ByteArrayDataClass b2=new ByteArrayDataClass(new byte[10], "cazzo");
 //		System.out.println(b.getKey());
 		List<ByteArrayDataClass> lb= new LinkedList<ByteArrayDataClass>();
-		for(int i=0;i<1000;i++){
+		for(int i=0;i<50;i++){
 			ByteArrayDataClass b=new ByteArrayDataClass(new byte[10], "cazzo");
 			lb.add(b);
 		}
@@ -35,8 +35,26 @@ public class ProveAppengineServlet extends HttpServlet {
 		
 //		lb.add(b2);
 		DatastoreLoadAndSave s=new DatastoreLoadAndSave();
-		DatastoreLoadAndSaveWithTransaction s2=new DatastoreLoadAndSaveWithTransaction();
+//		DatastoreLoadAndSaveWithTransaction s2=new DatastoreLoadAndSaveWithTransaction();
 		s.saveAll(lb);
+		
+		List<Key> lk= new LinkedList<Key>();
+		for(ByteArrayDataClass b : lb){
+			lk.add(b.getKey());
+		}
+		
+		s.removeAllByKeys(lk,50);
+		
+		lb = s.loadWithGenerics(null, ByteArrayDataClass.class);
+
+		System.out.println(lb.size());
+//		
+		
+//		s.removeByKey(lb.get(0).getKey());
+		
+		
+//		DatastoreLoadAndSave s1b=new DatastoreLoadAndSave();
+//		System.out.println(s1b.removeAllViaQuery(ByteArrayDataClass.class.getName()));
 //				
 //		s2.openTransaction();
 //		try{
@@ -54,11 +72,11 @@ public class ProveAppengineServlet extends HttpServlet {
 //		
 //		byte[] data=s.load("prova");
 		
-		lb = s.loadWithGenerics(null, ByteArrayDataClass.class);
-		System.out.println(lb.get(0));
-		
-		System.out.println(lb.size());
-		
+//		lb = s.loadWithGenerics(null, ByteArrayDataClass.class);
+//		System.out.println(lb.get(0));
+//		
+//		System.out.println(lb.size());
+//		
 		
 		
 //		List<ByteArrayDataClass> data=s.load("title", "prova", ByteArrayDataClass.class);
@@ -114,7 +132,7 @@ public class ProveAppengineServlet extends HttpServlet {
 //		try {
 //			ent= db.get(KeyFactory.createKey(TestCaseChromosome.class.getSimpleName(), 2));
 //		} catch (EntityNotFoundException e) {
-//			// TODO Auto-generated catch block
+
 //			e.printStackTrace();
 //		}
 //		
