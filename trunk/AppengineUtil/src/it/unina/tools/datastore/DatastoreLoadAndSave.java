@@ -1,6 +1,7 @@
 package it.unina.tools.datastore;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -9,9 +10,12 @@ import java.util.Set;
 import javax.jdo.PersistenceManager;
 import javax.jdo.Query;
 
+import org.datanucleus.store.appengine.DatastoreManager;
 import org.datanucleus.store.appengine.query.JDOCursorHelper;
 
 import com.google.appengine.api.datastore.Cursor;
+import com.google.appengine.api.datastore.DatastoreService;
+import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Key;
 
 /**
@@ -314,10 +318,13 @@ public class DatastoreLoadAndSave {
 	 * recupera l'oggetto dal db e lo cancella, problema di efficienza in quanto
 	 * si fa una query in più al db.
 	 * 
-	 * @param objToRemove
+	 * @param classToRemove, la classe dell'oggetto da rimuovere, serve per effettuare la 
+	 * query per recuperare l'oggetto
+	 * @param id key.getId() solitamente un Long utilizzato per identificare l'oggetto.
 	 */
 	public void removeById(Class<?> classToRemove, Object id) {
 		PersistenceManager pm = PMF.get().getPersistenceManager();
+		
 
 		try {
 			pm.deletePersistent(pm.getObjectById(classToRemove, id));
@@ -327,12 +334,29 @@ public class DatastoreLoadAndSave {
 		}
 
 	}
+	
+	
+	/**
+	 * Metodo per rimuovere l'oggetto passato in input. Accetta la chiave dell'oggetto
+	 * e lo rimuove utilizzando una low-level api per risolvere il problema di efficienza
+	 * 
+	 * @param keyToRemove
+	 */
+	public void removeByKey(Key key) {
+		
+		DatastoreService ds= DatastoreServiceFactory.getDatastoreService(); 
+
+		ds.delete(key);
+
+
+	}
+	
 
 	/**
 	 * Il metodo cancella tutte le entità della classe classToRemove, utilizza
 	 * un cursore per scorrerle tutte, in modo da poter cancellare anche un
 	 * numero molto grande di entità.
-	 * 
+	 * Poco efficinete poichè prima recupera le entità da cancellare e poi le cancella
 	 * @param classToRemove
 	 */
 	public void removeAll(String classToRemove) {
@@ -370,6 +394,82 @@ public class DatastoreLoadAndSave {
 		}
 
 	}
+	
+	
+	/**
+	 * Il metodo cancella tutte le entità identificate dalle chiavi passate come argomento.
+	 * Se nessuna entità corrisponde ad una chiave passata si passa oltre.
+	 * Cancella le entità a blocchi, la grandezza di tali blocchi è definita da range
+	 * Effettua quindi un'operazione sul datastore per blocco.
+	 * E' il metodo più efficiente di cancellazione poichè utilizza le Low-Level API
+	 * bisogna però conoscere le chiavi delle entità da cancellare
+	 * 
+	 * @param keysToRemove Lista delle chiavi corrispondenti alle entità da rimuovere
+	 * @param range indica quante entità alla volta devono essere rimosse
+	 */
+	public void removeAllByKeys(List<Key> keysToRemove, Integer range) {
+		
+		List<Key> cursorToRemove=null;
+		//Indice da cui si comincia a cancellare
+		Integer fromIndex=0;
+		
+		/*indice in cui si finisce di cancellare
+		 * l'oggetto di indice toIndex NON viene cancellato 
+		 */
+		Integer toIndex=range;
+		
+		DatastoreService ds= DatastoreServiceFactory.getDatastoreService();
+		
+		
+		
+		try{
+		while (keysToRemove.size()>0){
+			cursorToRemove=keysToRemove.subList(fromIndex, toIndex);
+			ds.delete(cursorToRemove);
+			fromIndex=toIndex;
+			toIndex+=range;
+		}
+		}catch (IndexOutOfBoundsException e) {
+			if(fromIndex<keysToRemove.size()){
+				toIndex=keysToRemove.size();
+				cursorToRemove=keysToRemove.subList(fromIndex, toIndex);
+				ds.delete(cursorToRemove);
+			}
+		}
+		
+		
+	}
+	
+	
+	
+	/**
+	 * Il metodo cancella tutte le entità della classe classToRemove, utilizza
+	 * query.deletePersistentAll() in modo da evitare che le entità vengano prima 
+	 * recuperate dal datastore e poi cancellate. Utilizza una singola operazione 
+	 * sul datastore. Se bisogna cancellare un grandissimo numero di entità potrebbe
+	 * causare eccezioni di deadline. (potrebbe metterci più tempo di quello a disposizione) 
+	 * @param classToRemove
+	 */
+	public Long removeAllViaQuery(String classToRemove) {
+		String kindToDelete = classToRemove;
+		Long entitiesRemoved=0l;
+		
+		PersistenceManager pm = PMF.get().getPersistenceManager();
+		
+		try {
+
+			Query query = pm.newQuery("select from " + kindToDelete);
+			entitiesRemoved=query.deletePersistentAll();
+			
+		} finally {
+
+			pm.close();
+		}
+		
+		return entitiesRemoved;
+
+	}
+	
 
 	/**
 	 * Il metodo chiude il persistencemanager utilizzato per fare il lazyload Il

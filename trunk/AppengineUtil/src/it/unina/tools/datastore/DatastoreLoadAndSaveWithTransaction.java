@@ -236,5 +236,8 @@ public class DatastoreLoadAndSaveWithTransaction {
 		
 
 	}
+	
+	
+	//TODO:INSERIRE I METODI MANCANTI CHE STANNO IN DatastoreLoadAndSave.java
 
 }
