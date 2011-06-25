@@ -1,16 +1,7 @@
 package it.unina.tools.datastore;
 
 
-/*TODO: aggiungere load con cursore in overloading, studiare meglio la cancellazione tramite cursore
- * aggiungere remove tramite una query e con filtro....
- * studiare come si fa a caricare liste ordinate.
- * Aggiungere metodo che salva data la chiave, creare la chiave nel metodo data la classe e l'id.
- */
-
-
-
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -19,13 +10,13 @@ import java.util.Set;
 import javax.jdo.PersistenceManager;
 import javax.jdo.Query;
 
-import org.datanucleus.store.appengine.DatastoreManager;
 import org.datanucleus.store.appengine.query.JDOCursorHelper;
 
 import com.google.appengine.api.datastore.Cursor;
 import com.google.appengine.api.datastore.DatastoreService;
 import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Key;
+import com.google.appengine.api.datastore.KeyFactory;
 
 /**
  * La classe fornisce i metodi load and save per caricare e salvare dal e nel
@@ -41,61 +32,6 @@ public class DatastoreLoadAndSave {
 	 * lazyload E' necessario memorizzarlo per poterlo chiudere successivamente.
 	 */
 	PersistenceManager pmToclose = null;
-
-	/**
-	 * Metodo per salvare un array di byte con il relativo nome Crea un entità
-	 * di tipo ByteArrayDataClass
-	 * 
-	 * @param bytes
-	 * @param name
-	 *            (identificativo human-readable dell'array di byte)
-	 */
-	public void save(byte[] bytes, String name) {
-
-		ByteArrayDataClass dataToStore = new ByteArrayDataClass(bytes, name);
-		PersistenceManager pm = PMF.get().getPersistenceManager();
-
-		try {
-			pm.makePersistent(dataToStore);
-		} finally {
-			pm.close();
-		}
-	}
-
-	/**
-	 * Metodo per caricare un array di byte dato il suo identificativo
-	 * 
-	 * @param name
-	 *            (identificativo human-readable dell'array di byte)
-	 * @return
-	 */
-	public byte[] load(String name) {
-
-		PersistenceManager pm = PMF.get().getPersistenceManager();
-		Query query = pm.newQuery(ByteArrayDataClass.class);
-		query.setFilter("title == titleParam");
-		query.declareParameters("String titleParam");
-
-		ByteArrayDataClass dataToLoad = null;
-
-		try {
-			List<ByteArrayDataClass> results = (List<ByteArrayDataClass>) query
-					.execute(name);
-			if (!results.isEmpty()) {
-				for (ByteArrayDataClass e : results) {
-					dataToLoad = e;
-				}
-			} else {
-				// ... no results ...
-			}
-		} finally {
-			query.closeAll();
-			pm.close();
-		}
-
-		return dataToLoad.getFile();
-
-	}
 
 	/**
 	 * Metodo generico per salvare un oggetto
@@ -130,77 +66,25 @@ public class DatastoreLoadAndSave {
 	}
 
 	/**
-	 * Metodo generico per caricare uno o più oggetti data una mappa di
-	 * parametri rappresentanti coppie (attributo, valore) che serviranno per
-	 * filtrare la query. Il filtro creato sarà un and di equivalenze.
+	 * Metodo per costruire una chiave data la classe e un long; Tale metodo
+	 * costruisce una chiave simile a quella di default di google Permette però
+	 * di utilizzare un proprio id univoco e non quello fornito da appengine
 	 * 
-	 * @param <T>
-	 *            Tipo degli oggetti restituiti da load
-	 * @param params
-	 *            Mappa contenente la coppia chiave valore per costruire il
-	 *            filtro la coppia chiave valore della mappa è così formata:
-	 *            chiave è una stringa rappresentnate il nome del campo
-	 *            dell'oggetto il valore corrispondente è il valore che gli
-	 *            oggetti cercati devono matchare il valore può essere di tipo
-	 *            stringa o numerico.
-	 * @return la lista di oggetti che condividono lo stesso identificativo
+	 * @param kind
+	 *            oggetto class dell'entità da salvare
+	 * @param id
+	 *            univoco.
+	 * @return
 	 */
-	public <T> List<T> loadWithGenerics(Map<String, Object> params,
-			Class<T> type) {
-
-		PersistenceManager pm = PMF.get().getPersistenceManager();
-		Query query = pm.newQuery(type);
-
-		// Definiamo il cursore per scorrere gli oggetti della query 500 alla
-		// volta
-		Map<String, Object> extensionMap = new HashMap<String, Object>();
-		Cursor cursor;
-
-		// creiamo il filtro e settiamolo se sono stati passati i parametri
-		if (params != null) {
-			String filter = createFilter(params);
-			query.setFilter(filter);
-		}// altrimenti la query viene effettuata senza filtro su tutte le entità
-
-		List<T> results = null;
-		List<T> returnList = null;
-		try {
-
-			query.setRange(0, 500);
-
-			results = (List<T>) query.execute();
-			returnList = new LinkedList<T>();
-			while (results.size() != 0) {
-				// Use the first 500 results...
-				returnList.addAll(results);
-
-				cursor = JDOCursorHelper.getCursor(results);
-
-				extensionMap.put(JDOCursorHelper.CURSOR_EXTENSION, cursor);
-
-				query.setExtensions(extensionMap);
-
-				query.setRange(0, 500);
-
-				results = (List<T>) query.execute();
-
-			}
-		}
-
-		finally {
-			query.closeAll();
-			pm.close();
-
-		}
-
-		return returnList;
-
+	public Key generateKey(Class<?> kind, Long id) {
+		Key key = KeyFactory.createKey(kind.getSimpleName(), id);
+		return key;
 	}
 
 	/**
 	 * Metodo per caricare uno o più oggetti data una mappa di parametri
 	 * rappresentanti coppie (attributo, valore) che serviranno per filtrare la
-	 * query. Il filtro creato sarà un and di equivalenze. Se la mappa è null il
+	 * query. Se la mappa è null il
 	 * filtro nn verrà creato e si farà una query che recupererà tutti gli
 	 * oggetti della classe. Il metodo non effettua il lazy loading in quanto
 	 * verrà invocato il metodo size() della lista dei risultati. Questo è
@@ -215,10 +99,15 @@ public class DatastoreLoadAndSave {
 	 *            chiave è una stringa rappresentnate il nome del campo
 	 *            dell'oggetto il valore corrispondente è il valore che gli
 	 *            oggetti cercati devono matchare il valore può essere di tipo
-	 *            stringa o numerico.
+	 *            stringa o numerico oppure può essere di tipo
+	 *            {@link OpAndValue} se si desidera effettuare una query in cui
+	 *            non si usa per il campo corrispondente un operatore di
+	 *            eguaglianza
+	 * @param range
+	 *            indica quante entità alla volta devono essere caricate
 	 * @return la lista di oggetti che condividono lo stesso identificativo
 	 */
-	public Object load(Map<String, Object> params, Class<?> type) {
+	public Object load(Map<String, Object> params, Class<?> type, Integer range) {
 
 		PersistenceManager pm = PMF.get().getPersistenceManager();
 		Query query = pm.newQuery(type);
@@ -230,6 +119,7 @@ public class DatastoreLoadAndSave {
 
 		// creiamo il filtro e settiamolo se sono stati passati i parametri
 		if (params != null) {
+
 			String filter = createFilter(params);
 			query.setFilter(filter);
 		}// altrimenti la query viene effettuata senza filtro su tutte le entità
@@ -238,12 +128,12 @@ public class DatastoreLoadAndSave {
 		List<Object> returnList = null;
 		try {
 
-			query.setRange(0, 500);
+			query.setRange(0, range);
 
 			results = (List<Object>) query.execute();
 			returnList = new LinkedList<Object>();
 			while (results.size() != 0) {
-				// Use the first 500 results...
+				// Use the first range results...
 				returnList.addAll(results);
 
 				cursor = JDOCursorHelper.getCursor(results);
@@ -252,7 +142,7 @@ public class DatastoreLoadAndSave {
 
 				query.setExtensions(extensionMap);
 
-				query.setRange(0, 500);
+				query.setRange(0, range);
 
 				results = (List<Object>) query.execute();
 
@@ -268,6 +158,101 @@ public class DatastoreLoadAndSave {
 
 	}
 
+	/**
+	 * Metodo per caricare uno o più oggetti data una mappa di parametri
+	 * rappresentanti coppie (attributo, valore) che serviranno per filtrare la
+	 * query e dato un ordine. Se
+	 * la mappa è null il filtro nn verrà creato e si farà una query che
+	 * recupererà tutti gli oggetti della classe. Il metodo non effettua il lazy
+	 * loading in quanto verrà invocato il metodo size() della lista dei
+	 * risultati. Questo è necessario per poter effettuare salvataggi degli
+	 * oggetti recuperati in momenti immediatamente successivi.
+	 * 
+	 * @param Class
+	 *            <?> Tipo degli oggetti restituiti da load
+	 * @param params
+	 *            Mappa contenente la coppia chiave valore per costruire il
+	 *            filtro la coppia chiave valore della mappa è così formata:
+	 *            chiave è una stringa rappresentnate il nome del campo
+	 *            dell'oggetto il valore corrispondente è il valore che gli
+	 *            oggetti cercati devono matchare il valore può essere di tipo
+	 *            stringa o numerico oppure può essere di tipo
+	 *            {@link OpAndValue} se si desidera effettuare una query in cui
+	 *            non si usa per il campo corrispondente un operatore di
+	 *            eguaglianza
+	 * @param range
+	 *            indica quante entità alla volta devono essere caricate
+	 * @param ordering
+	 *            specifica che tipo di ordinamento devono avere le entità
+	 * 
+	 * @return la lista di oggetti che condividono lo stesso identificativo
+	 */
+	public Object load(Map<String, Object> params, Class<?> type,
+			Integer range, String ordering) {
+
+		PersistenceManager pm = PMF.get().getPersistenceManager();
+		Query query = pm.newQuery(type);
+
+		// Definiamo il cursore per scorrere gli oggetti della query 500 alla
+		// volta
+		Map<String, Object> extensionMap = new HashMap<String, Object>();
+		Cursor cursor;
+
+		// creiamo il filtro e settiamolo se sono stati passati i parametri
+		if (params != null) {
+
+			String filter = createFilter(params);
+			query.setFilter(filter);
+		}// altrimenti la query viene effettuata senza filtro su tutte le entità
+
+		// Settiamo l'ordine se è stato inserito.
+		if (ordering != null) {
+			ordering.trim();
+			if (!ordering.equals("")) {
+				query.setOrdering(ordering);
+			}
+		}
+
+		List<Object> results = null;
+		List<Object> returnList = null;
+		try {
+
+			query.setRange(0, range);
+
+			results = (List<Object>) query.execute();
+			returnList = new LinkedList<Object>();
+			while (results.size() != 0) {
+				// Use the first range results...
+				returnList.addAll(results);
+
+				cursor = JDOCursorHelper.getCursor(results);
+
+				extensionMap.put(JDOCursorHelper.CURSOR_EXTENSION, cursor);
+
+				query.setExtensions(extensionMap);
+
+				query.setRange(0, range);
+
+				results = (List<Object>) query.execute();
+
+			}
+
+		} finally {
+			query.closeAll();
+			pm.close();
+
+		}
+
+		return returnList;
+
+	}
+
+	/**
+	 * Metodo ausiliario per costruire il filtro dati i parametri.
+	 * 
+	 * @param params
+	 * @return
+	 */
 	private String createFilter(Map<String, Object> params) {
 		String filter = "";
 
@@ -277,19 +262,52 @@ public class DatastoreLoadAndSave {
 			Set<String> fieldsName = params.keySet();
 			Object value;
 
+			// Per ogni entri della mappa prendiamo il campo su cui cercare
 			for (String field : fieldsName) {
+				// prendiamo il valore da cercare
 				value = params.get(field);
+				// se tale valore è una coppia (operatore,valore) OpAndValue
+				if (value instanceof OpAndValue) {
+					// allora richiamiamo il metodo per creare il filtro con
+					// tale coppia
+					OpAndValue opAndValue = (OpAndValue) value;
+					filter += createFilterWithOperators(field, opAndValue);
+				} else
+				// altrimenti eseguiamo i controlli di routine per settare il
+				// filtro
 				if (value instanceof String) {
 					filter += field + " == '" + value + "' && ";
 				} else {
 					filter += field + " == " + value + " && ";
+
 				}
 			}
-
 			// elimino l'and finale
 			filter = filter.substring(0, filter.length() - 4);
-
 		}
+
+		return filter;
+	}
+
+	/**
+	 * Metodo ausiliario per costruire la parte del filtro che richiede anche un
+	 * operatore diverso da quello di uguaglianza
+	 * 
+	 * @param field
+	 * @param opAndValue
+	 *            è la coppia operatore valore da settare.
+	 * @return
+	 */
+	private String createFilterWithOperators(String field, OpAndValue opAndValue) {
+		String filter = "";
+		String op = opAndValue.getOperator();
+		Object value = opAndValue.getValue();
+		if (value instanceof String) {
+			filter += field + " " + op + " '" + value + "' && ";
+		} else {
+			filter += field + " " + op + " " + value + " && ";
+		}
+
 		return filter;
 	}
 
@@ -323,17 +341,19 @@ public class DatastoreLoadAndSave {
 	}
 
 	/**
-	 * Metodo per rimuovere l'oggetto passato in input TODO: Per ora il metodo
-	 * recupera l'oggetto dal db e lo cancella, problema di efficienza in quanto
-	 * si fa una query in più al db.
+	 * Metodo per rimuovere l'oggetto passato in input recupera l'oggetto dal db
+	 * e lo cancella, problema di efficienza in quanto si fa una query in più al
+	 * db.
 	 * 
-	 * @param classToRemove, la classe dell'oggetto da rimuovere, serve per effettuare la 
-	 * query per recuperare l'oggetto
-	 * @param id key.getId() solitamente un Long utilizzato per identificare l'oggetto.
+	 * @param classToRemove
+	 *            , la classe dell'oggetto da rimuovere, serve per effettuare la
+	 *            query per recuperare l'oggetto
+	 * @param id
+	 *            key.getId() solitamente un Long utilizzato per identificare
+	 *            l'oggetto.
 	 */
 	public void removeById(Class<?> classToRemove, Object id) {
 		PersistenceManager pm = PMF.get().getPersistenceManager();
-		
 
 		try {
 			pm.deletePersistent(pm.getObjectById(classToRemove, id));
@@ -343,29 +363,28 @@ public class DatastoreLoadAndSave {
 		}
 
 	}
-	
-	
+
 	/**
-	 * Metodo per rimuovere l'oggetto passato in input. Accetta la chiave dell'oggetto
-	 * e lo rimuove utilizzando una low-level api per risolvere il problema di efficienza
+	 * Metodo per rimuovere l'oggetto passato in input. Accetta la chiave
+	 * dell'oggetto e lo rimuove utilizzando una low-level api per risolvere il
+	 * problema di efficienza
 	 * 
 	 * @param keyToRemove
 	 */
 	public void removeByKey(Key key) {
-		
-		DatastoreService ds= DatastoreServiceFactory.getDatastoreService(); 
+
+		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
 
 		ds.delete(key);
 
-
 	}
-	
 
 	/**
 	 * Il metodo cancella tutte le entità della classe classToRemove, utilizza
 	 * un cursore per scorrerle tutte, in modo da poter cancellare anche un
-	 * numero molto grande di entità.
-	 * Poco efficinete poichè prima recupera le entità da cancellare e poi le cancella
+	 * numero molto grande di entità. Poco efficinete poichè prima recupera le
+	 * entità da cancellare e poi le cancella
+	 * 
 	 * @param classToRemove
 	 */
 	public void removeAll(String classToRemove) {
@@ -403,82 +422,128 @@ public class DatastoreLoadAndSave {
 		}
 
 	}
-	
-	
+
 	/**
-	 * Il metodo cancella tutte le entità identificate dalle chiavi passate come argomento.
-	 * Se nessuna entità corrisponde ad una chiave passata si passa oltre.
-	 * Cancella le entità a blocchi, la grandezza di tali blocchi è definita da range
-	 * Effettua quindi un'operazione sul datastore per blocco.
-	 * E' il metodo più efficiente di cancellazione poichè utilizza le Low-Level API
-	 * bisogna però conoscere le chiavi delle entità da cancellare
+	 * Il metodo cancella tutte le entità identificate dalle chiavi passate come
+	 * argomento. Se nessuna entità corrisponde ad una chiave passata si passa
+	 * oltre. Cancella le entità a blocchi, la grandezza di tali blocchi è
+	 * definita da range Effettua quindi un'operazione sul datastore per blocco.
+	 * E' il metodo più efficiente di cancellazione poichè utilizza le Low-Level
+	 * API bisogna però conoscere le chiavi delle entità da cancellare
 	 * 
-	 * @param keysToRemove Lista delle chiavi corrispondenti alle entità da rimuovere
-	 * @param range indica quante entità alla volta devono essere rimosse
+	 * @param keysToRemove
+	 *            Lista delle chiavi corrispondenti alle entità da rimuovere
+	 * @param range
+	 *            indica quante entità alla volta devono essere rimosse
 	 */
 	public void removeAllByKeys(List<Key> keysToRemove, Integer range) {
-		
-		List<Key> cursorToRemove=null;
-		//Indice da cui si comincia a cancellare
-		Integer fromIndex=0;
-		
-		/*indice in cui si finisce di cancellare
-		 * l'oggetto di indice toIndex NON viene cancellato 
+
+		List<Key> cursorToRemove = null;
+		// Indice da cui si comincia a cancellare
+		Integer fromIndex = 0;
+
+		/*
+		 * indice in cui si finisce di cancellare l'oggetto di indice toIndex
+		 * NON viene cancellato
 		 */
-		Integer toIndex=range;
-		
-		DatastoreService ds= DatastoreServiceFactory.getDatastoreService();
-		
-		
-		
-		try{
-		while (keysToRemove.size()>0){
-			cursorToRemove=keysToRemove.subList(fromIndex, toIndex);
-			ds.delete(cursorToRemove);
-			fromIndex=toIndex;
-			toIndex+=range;
-		}
-		}catch (IndexOutOfBoundsException e) {
-			if(fromIndex<keysToRemove.size()){
-				toIndex=keysToRemove.size();
-				cursorToRemove=keysToRemove.subList(fromIndex, toIndex);
+		Integer toIndex = range;
+
+		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
+
+		try {
+			while (keysToRemove.size() > 0) {
+				cursorToRemove = keysToRemove.subList(fromIndex, toIndex);
+				ds.delete(cursorToRemove);
+				fromIndex = toIndex;
+				toIndex += range;
+			}
+		} catch (IndexOutOfBoundsException e) {
+			if (fromIndex < keysToRemove.size()) {
+				toIndex = keysToRemove.size();
+				cursorToRemove = keysToRemove.subList(fromIndex, toIndex);
 				ds.delete(cursorToRemove);
 			}
 		}
-		
-		
+
 	}
-	
-	
-	
+
 	/**
 	 * Il metodo cancella tutte le entità della classe classToRemove, utilizza
-	 * query.deletePersistentAll() in modo da evitare che le entità vengano prima 
-	 * recuperate dal datastore e poi cancellate. Utilizza una singola operazione 
-	 * sul datastore. Se bisogna cancellare un grandissimo numero di entità potrebbe
-	 * causare eccezioni di deadline. (potrebbe metterci più tempo di quello a disposizione) 
+	 * query.deletePersistentAll() in modo da evitare che le entità vengano
+	 * prima recuperate dal datastore e poi cancellate. Utilizza una singola
+	 * operazione sul datastore. Se bisogna cancellare un grandissimo numero di
+	 * entità potrebbe causare eccezioni di deadline. (potrebbe metterci più
+	 * tempo di quello a disposizione)
+	 * 
 	 * @param classToRemove
 	 */
 	public Long removeAllViaQuery(String classToRemove) {
 		String kindToDelete = classToRemove;
-		Long entitiesRemoved=0l;
-		
+		Long entitiesRemoved = 0l;
+
 		PersistenceManager pm = PMF.get().getPersistenceManager();
-		
+
 		try {
 
 			Query query = pm.newQuery("select from " + kindToDelete);
-			entitiesRemoved=query.deletePersistentAll();
-			
+			entitiesRemoved = query.deletePersistentAll();
+
 		} finally {
 
 			pm.close();
 		}
-		
+
 		return entitiesRemoved;
 
 	}
-	
+
+	/**
+	 * Il metodo cancella tutte le entità della classe type che rispondono alla
+	 * query i cui parametri sono contenuti in params. Utilizza
+	 * query.deletePersistentAll() in modo da evitare che le entità vengano
+	 * prima recuperate dal datastore e poi cancellate. Utilizza una singola
+	 * operazione sul datastore. Se bisogna cancellare un grandissimo numero di
+	 * entità potrebbe causare eccezioni di deadline. (potrebbe metterci più
+	 * tempo di quello a disposizione)
+	 * 
+	 * @param params
+	 *            Mappa contenente la coppia chiave valore per costruire il
+	 *            filtro la coppia chiave valore della mappa è così formata:
+	 *            chiave è una stringa rappresentnate il nome del campo
+	 *            dell'oggetto il valore corrispondente è il valore che gli
+	 *            oggetti cercati devono matchare il valore può essere di tipo
+	 *            stringa o numerico oppure può essere di tipo
+	 *            {@link OpAndValue} se si desidera effettuare una query in cui
+	 *            non si usa per il campo corrispondente un operatore di
+	 *            eguaglianza
+	 * @param type
+	 *            tipo dell'entità da cancellare
+	 */
+	public Long removeViaQuery(Map<String, Object> params, Class<?> type) {
+
+		PersistenceManager pm = PMF.get().getPersistenceManager();
+		Query query = pm.newQuery(type);
+		Long entitiesRemoved = 0l;
+
+		// creiamo il filtro e settiamolo se sono stati passati i parametri
+		if (params != null) {
+			String filter = createFilter(params);
+			query.setFilter(filter);
+		}// altrimenti la query viene effettuata senza filtro su tutte le entità
+
+		try {
+
+			entitiesRemoved = query.deletePersistentAll();
+
+		} finally {
+			query.closeAll();
+			pm.close();
+
+		}
+
+		return entitiesRemoved;
+
+	}
 
 	/**
 	 * Il metodo chiude il persistencemanager utilizzato per fare il lazyload Il
@@ -554,6 +619,74 @@ public class DatastoreLoadAndSave {
 		}
 
 		return results;
+
+	}
+
+	/**
+	 * Metodo generico per caricare uno o più oggetti data una mappa di
+	 * parametri rappresentanti coppie (attributo, valore) che serviranno per
+	 * filtrare la query. Il filtro creato sarà un and di equivalenze.
+	 * 
+	 * @param <T>
+	 *            Tipo degli oggetti restituiti da load
+	 * @param params
+	 *            Mappa contenente la coppia chiave valore per costruire il
+	 *            filtro la coppia chiave valore della mappa è così formata:
+	 *            chiave è una stringa rappresentnate il nome del campo
+	 *            dell'oggetto il valore corrispondente è il valore che gli
+	 *            oggetti cercati devono matchare il valore può essere di tipo
+	 *            stringa o numerico.
+	 * @return la lista di oggetti che condividono lo stesso identificativo
+	 */
+	public <T> List<T> loadWithGenerics(Map<String, Object> params,
+			Class<T> type) {
+
+		PersistenceManager pm = PMF.get().getPersistenceManager();
+		Query query = pm.newQuery(type);
+
+		// Definiamo il cursore per scorrere gli oggetti della query 500 alla
+		// volta
+		Map<String, Object> extensionMap = new HashMap<String, Object>();
+		Cursor cursor;
+
+		// creiamo il filtro e settiamolo se sono stati passati i parametri
+		if (params != null) {
+			String filter = createFilter(params);
+			query.setFilter(filter);
+		}// altrimenti la query viene effettuata senza filtro su tutte le entità
+
+		List<T> results = null;
+		List<T> returnList = null;
+		try {
+
+			query.setRange(0, 500);
+
+			results = (List<T>) query.execute();
+			returnList = new LinkedList<T>();
+			while (results.size() != 0) {
+				// Use the first 500 results...
+				returnList.addAll(results);
+
+				cursor = JDOCursorHelper.getCursor(results);
+
+				extensionMap.put(JDOCursorHelper.CURSOR_EXTENSION, cursor);
+
+				query.setExtensions(extensionMap);
+
+				query.setRange(0, 500);
+
+				results = (List<T>) query.execute();
+
+			}
+		}
+
+		finally {
+			query.closeAll();
+			pm.close();
+
+		}
+
+		return returnList;
 
 	}
 
