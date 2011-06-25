@@ -84,6 +84,14 @@ public class ByteArrayDataClass implements Serializable{
 		this.file = new Blob(file);
 	}
 
+	public void setNumRows(Integer numRows) {
+		this.numRows = numRows;
+	}
+
+	public Integer getNumRows() {
+		return numRows;
+	}
+
 //	public Integer getNumRows() {
 //		return numRows;
 //	}

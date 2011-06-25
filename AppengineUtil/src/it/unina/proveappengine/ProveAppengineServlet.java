@@ -2,18 +2,19 @@ package it.unina.proveappengine;
 
 import it.unina.tools.datastore.ByteArrayDataClass;
 import it.unina.tools.datastore.DatastoreLoadAndSave;
-import it.unina.tools.datastore.DatastoreLoadAndSaveWithTransaction;
+import it.unina.tools.datastore.OpAndValue;
 
 import java.io.IOException;
-import java.util.LinkedList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.Key;
+import com.sun.org.apache.bcel.internal.generic.NEW;
 
 @SuppressWarnings("serial")
 public class ProveAppengineServlet extends HttpServlet {
@@ -26,28 +27,43 @@ public class ProveAppengineServlet extends HttpServlet {
 //		b.setNOumRows(2);
 //		ByteArrayDataClass b2=new ByteArrayDataClass(new byte[10], "cazzo");
 //		System.out.println(b.getKey());
-		List<ByteArrayDataClass> lb= new LinkedList<ByteArrayDataClass>();
-		for(int i=0;i<50;i++){
-			ByteArrayDataClass b=new ByteArrayDataClass(new byte[10], "cazzo");
-			lb.add(b);
-		}
-		
-		
+//		List<ByteArrayDataClass> lb= new LinkedList<ByteArrayDataClass>();
+//		for(int i=0;i<50;i++){
+//			ByteArrayDataClass b=new ByteArrayDataClass(new byte[10], "cazzo");
+//			lb.add(b);
+//		}
+//		
+//		
 //		lb.add(b2);
+		ByteArrayDataClass b=new ByteArrayDataClass(new byte[10], "cazzo");
+		ByteArrayDataClass b2=new ByteArrayDataClass(new byte[10], "cazzo");
 		DatastoreLoadAndSave s=new DatastoreLoadAndSave();
 //		DatastoreLoadAndSaveWithTransaction s2=new DatastoreLoadAndSaveWithTransaction();
-		s.saveAll(lb);
+//		s.saveAll(lb);
+		Key k= s.generateKey(ByteArrayDataClass.class, 122l);
+		b.setKey(k);
 		
-		List<Key> lk= new LinkedList<Key>();
-		for(ByteArrayDataClass b : lb){
-			lk.add(b.getKey());
-		}
-		
-		s.removeAllByKeys(lk,50);
-		
-		lb = s.loadWithGenerics(null, ByteArrayDataClass.class);
+		b.setNumRows(5);
+		b2.setNumRows(4);
 
-		System.out.println(lb.size());
+		System.out.println(b.getKey());
+		System.out.println(b2.getKey());
+		
+		s.save(b);
+//		List<Key> lk= new LinkedList<Key>();
+//		for(ByteArrayDataClass b : lb){
+//			lk.add(b.getKey());
+//		}
+//		
+//		s.removeAllByKeys(lk,50);
+//		
+//		lb = s.loadWithGenerics(null, ByteArrayDataClass.class);
+		
+		s.save(b2);
+		
+		
+		System.out.println(b.getKey());
+		System.out.println(b2.getKey());
 //		
 		
 //		s.removeByKey(lb.get(0).getKey());
@@ -81,13 +97,13 @@ public class ProveAppengineServlet extends HttpServlet {
 		
 //		List<ByteArrayDataClass> data=s.load("title", "prova", ByteArrayDataClass.class);
 		
-//		Map<String, Object> m = new HashMap<String, Object>();
-//		Map<String, Object> m2 = null;
-//		m.put("title", "prova");
-//		m.put("numRows", 2);
-//		DatastoreLoadAndSave s2=new DatastoreLoadAndSave();
-//		List<ByteArrayDataClass> data=(List<ByteArrayDataClass>)s2.load(m2, ByteArrayDataClass.class);
-//		System.out.println(data.size());
+		Map<String, Object> m = new HashMap<String, Object>();
+		Map<String, Object> m2 = null;
+//		m.put("title", "cazzo");
+		m.put("title", new OpAndValue("==", "cazzo"));
+		DatastoreLoadAndSave s2=new DatastoreLoadAndSave();
+		List<ByteArrayDataClass> data=(List<ByteArrayDataClass>)s2.load(m, ByteArrayDataClass.class, 10, "numRows desc");
+		System.out.println(data.size());
 //		data.size();
 //		ByteArrayDataClass b2= data.get(0);
 		
