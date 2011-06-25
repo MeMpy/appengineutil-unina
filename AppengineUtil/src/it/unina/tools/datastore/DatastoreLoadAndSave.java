@@ -1,5 +1,14 @@
 package it.unina.tools.datastore;
 
+
+/*TODO: aggiungere load con cursore in overloading, studiare meglio la cancellazione tramite cursore
+ * aggiungere remove tramite una query e con filtro....
+ * studiare come si fa a caricare liste ordinate.
+ * Aggiungere metodo che salva data la chiave, creare la chiave nel metodo data la classe e l'id.
+ */
+
+
+
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
