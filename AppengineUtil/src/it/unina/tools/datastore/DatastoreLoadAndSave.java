@@ -80,6 +80,21 @@ public class DatastoreLoadAndSave {
 		Key key = KeyFactory.createKey(kind.getSimpleName(), id);
 		return key;
 	}
+	
+	
+	/**
+	 * Il metodo serve per retrocompatibilità, assegna automaticamente il valore 500
+	 * al parametro range.
+	 * Per ulteriori informazioni vedi documentazione del metodo 
+	 * load(Map<String, Object> params, Class<?> type, Integer range)
+	 * 
+	 * @param params
+	 * @param type
+	 * @return
+	 */
+	public Object load(Map<String, Object> params, Class<?> type) {
+		return load(params, type, 500);
+	}
 
 	/**
 	 * Metodo per caricare uno o più oggetti data una mappa di parametri
