@@ -71,15 +71,36 @@ public class DatastoreLoadAndSave {
 	 * di utilizzare un proprio id univoco e non quello fornito da appengine
 	 * 
 	 * @param kind
-	 *            oggetto class dell'entità da salvare
+	 *            oggetto class dell'entità cui generare la chiave
 	 * @param id
 	 *            univoco.
 	 * @return
 	 */
-	public Key generateKey(Class<?> kind, Long id) {
+	public static Key generateKey(Class<?> kind, Long id) {
 		Key key = KeyFactory.createKey(kind.getSimpleName(), id);
 		return key;
 	}
+	
+	
+	/**
+	 * Metodo per costruire una lista di chiavi data la classe, il punto iniziale
+	 * da cui partire per enumerare gli id e il numero totale di chiavi da creare
+	 * 
+	 * @param startPoint indice da cui iniziare a numerare le chiavi
+	 * @param numKeys numero totale di chiavi
+	 * @param kind oggetto class dell'entità cui generare la chiave
+	 * @return
+	 */
+	public static List<Key> generateKeys(Long startPoint, Integer numKeys,
+			Class<?> kind) {
+		List<Key> keyList = new LinkedList<Key>();
+		for (Long i = startPoint; i < startPoint + numKeys; i++) {
+			keyList.add(generateKey(kind, i));
+		}
+		return keyList;
+	}
+	
+	
 	
 	
 	/**
