@@ -34,7 +34,7 @@ public class ByteArrayDataClass implements Serializable{
     
     public ByteArrayDataClass(byte[] dataToStore, String name){
     	this.title=name;
-    	this.file= new Blob(dataToStore);
+    	setFile(dataToStore);
     }
 
     public Long getId() {
@@ -77,11 +77,16 @@ public class ByteArrayDataClass implements Serializable{
     }
 
 	public byte[] getFile() {
-		return file.getBytes();
+		if (this.file==null) return null;
+		else 
+			return file.getBytes();
 	}
 
 	public void setFile(byte[] file) {
-		this.file = new Blob(file);
+		if(file==null)
+			file=null;
+		else
+			this.file = new Blob(file);
 	}
 
 	public void setNumRows(Integer numRows) {
@@ -91,6 +96,8 @@ public class ByteArrayDataClass implements Serializable{
 	public Integer getNumRows() {
 		return numRows;
 	}
+	
+	
 
 //	public Integer getNumRows() {
 //		return numRows;

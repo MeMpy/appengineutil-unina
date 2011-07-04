@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.jdo.JDOObjectNotFoundException;
 import javax.jdo.PersistenceManager;
 import javax.jdo.Query;
 
@@ -15,8 +16,10 @@ import org.datanucleus.store.appengine.query.JDOCursorHelper;
 import com.google.appengine.api.datastore.Cursor;
 import com.google.appengine.api.datastore.DatastoreService;
 import com.google.appengine.api.datastore.DatastoreServiceFactory;
+import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
+import com.google.appengine.tools.mapreduce.MapReduceState;
 
 /**
  * La classe fornisce i metodi load and save per caricare e salvare dal e nel
@@ -353,13 +356,13 @@ public class DatastoreLoadAndSave {
 	 * creata da GAE. Tipicamente è un long ma può essere una stringa o un
 	 * oggetto a discrezione del programmatore.
 	 * 
-	 * @param <T>
+	 * @param <T>TODO: handle exception
 	 *            Tipo dell'oggetto ritornato
 	 * @param type
 	 *            Classe dell'oggetto da cercare
 	 * @param id
 	 *            Identificativo dell'oggetto.
-	 * @return l'oggetto dal datastore
+	 * @return l'oggetto dal datastore, se tale oggetto non è presente allora ritorna null.
 	 */
 	public <T> T loadObjectById(Class<T> type, Object id) {
 		PersistenceManager pm = PMF.get().getPersistenceManager();
@@ -368,7 +371,9 @@ public class DatastoreLoadAndSave {
 
 		try {
 			dataToLoad = pm.getObjectById(type, id);
-		} finally {
+		} catch (JDOObjectNotFoundException e) {
+			dataToLoad=null;
+		}finally {
 			pm.close();
 		}
 
@@ -724,6 +729,52 @@ public class DatastoreLoadAndSave {
 
 		return returnList;
 
+	}
+	
+	
+	
+	/**
+	 * ------------------------------------------------------------------
+	 * API PER MAP-REDUCE NECESSITANO DELLA LIBRERIA MAPREDUCE DI GOOGLE APPENGINE
+	 * -------------------------------------------------------------------
+	 * 
+	 */
+
+
+	/**
+	 * Il metodo si occupa di recuperare tutte le entità MapRecudeState (100 alla volta)
+	 * e le cancella tutte e 100 in un'unica chiamata al datastore 
+	 */
+	public void deleteAllMapReduceState(){
+		
+		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
+		List<MapReduceState> mapsToDelete= new LinkedList<MapReduceState>();
+		List<Key> mapsKeysToDelete= new LinkedList<Key>();
+
+
+		//Recupero i primi 100 MapReduceState
+		MapReduceState.getMapReduceStates(ds, null, 100, mapsToDelete);
+		
+		while (mapsToDelete.size()>0){
+		
+		//Creo la lista delle chiavi degli oggetti MapReduceState recuperati
+		for(MapReduceState map: mapsToDelete){
+
+			Key key = KeyFactory.createKey("MapReduceState", map.getJobID());
+			mapsKeysToDelete.add(key);
+		}
+
+		//Li cancello con un'unica chiamata al datastore
+		ds.delete(mapsKeysToDelete);
+		
+		//Pulisco le liste
+		mapsToDelete.clear();
+		mapsKeysToDelete.clear();
+		
+		//Recupero i successivi 100
+		MapReduceState.getMapReduceStates(ds, null, 100, mapsToDelete);
+		
+		}
 	}
 
 }
