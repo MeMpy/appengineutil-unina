@@ -744,6 +744,7 @@ public class DatastoreLoadAndSave {
 	/**
 	 * Il metodo si occupa di recuperare tutte le entità MapRecudeState (100 alla volta)
 	 * e le cancella tutte e 100 in un'unica chiamata al datastore 
+	 * 
 	 */
 	public void deleteAllMapReduceState(){
 		
