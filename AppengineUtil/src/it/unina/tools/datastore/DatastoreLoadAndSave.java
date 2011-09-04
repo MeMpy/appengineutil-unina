@@ -67,6 +67,38 @@ public class DatastoreLoadAndSave {
 			pm.close();
 		}
 	}
+	
+	/**
+	 * Metodo generico per salvare una lista di oggetti a blocchi
+	 * 
+	 * @param obj
+	 * @param range
+	 */
+	public void saveAll(List<?> obj, Integer range) {
+
+		PersistenceManager pm = PMF.get().getPersistenceManager();
+		Integer start = 0;
+		Integer end = range;
+		List<?> dataToStore = null;
+		try {
+
+			while (start < obj.size()) {
+				dataToStore = obj.subList(start, end);
+				pm.makePersistentAll(dataToStore);
+				start = end;
+				end += range;
+				if (end > obj.size()) {
+					end = obj.size();
+				}
+			}
+
+		} finally {
+			pm.close();
+		}
+
+	}
+
+	
 
 	/**
 	 * Metodo per costruire una chiave data la classe e un long; Tale metodo
