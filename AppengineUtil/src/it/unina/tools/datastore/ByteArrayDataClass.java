@@ -1,6 +1,8 @@
 package it.unina.tools.datastore;
 
 
+import it.unina.model.TestCaseChromosome;
+
 import java.io.Serializable;
 
 import javax.jdo.annotations.IdGeneratorStrategy;
@@ -30,7 +32,7 @@ public class ByteArrayDataClass implements Serializable{
 
     @Persistent
     private Blob file;
-
+    
     
     public ByteArrayDataClass(byte[] dataToStore, String name){
     	this.title=name;
