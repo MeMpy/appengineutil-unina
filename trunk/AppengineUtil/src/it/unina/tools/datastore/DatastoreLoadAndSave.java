@@ -1,7 +1,7 @@
 package it.unina.tools.datastore;
 
-
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +10,7 @@ import java.util.Set;
 import javax.jdo.JDOObjectNotFoundException;
 import javax.jdo.PersistenceManager;
 import javax.jdo.Query;
+import javax.naming.OperationNotSupportedException;
 
 import org.datanucleus.store.appengine.query.JDOCursorHelper;
 
@@ -56,6 +57,8 @@ public class DatastoreLoadAndSave {
 	 * Metodo generico per salvare una lista di oggetti
 	 * 
 	 * @param obj
+	 *            Lista delle entità da salvare, sarà salvata tutta in un'unica
+	 *            chiamata
 	 */
 	public void saveAll(List<?> obj) {
 
@@ -67,38 +70,44 @@ public class DatastoreLoadAndSave {
 			pm.close();
 		}
 	}
-	
+
 	/**
-	 * Metodo generico per salvare una lista di oggetti a blocchi
+	 * Metodo generico per salvare una lista di oggetti a blocchi di grandezza
+	 * range
 	 * 
 	 * @param obj
+	 *            Lista delle entità da salvare, verrà divisa in blocchi
 	 * @param range
+	 *            Grandezza dei blocchi da salvare
+	 * 
+	 * @throws NumberFormatException
+	 *             se il range è un valore minore o uguale a 0
 	 */
-	public void saveAll(List<?> obj, Integer range) {
+	public void saveAll(List<?> dataToSave, Integer range) {
 
-		PersistenceManager pm = PMF.get().getPersistenceManager();
-		Integer start = 0;
-		Integer end = range;
-		List<?> dataToStore = null;
-		try {
+		if (range <= 0)
+			throw new NumberFormatException();
 
-			while (start < obj.size()) {
-				dataToStore = obj.subList(start, end);
-				pm.makePersistentAll(dataToStore);
-				start = end;
-				end += range;
-				if (end > obj.size()) {
-					end = obj.size();
-				}
-			}
+		Integer fromIndex = 0;
+		Integer toIndex = range;
 
-		} finally {
-			pm.close();
+		List<?> dataToSaveSubList = null;
+
+		while (toIndex <= dataToSave.size()) {
+			dataToSaveSubList = dataToSave.subList(fromIndex, toIndex);
+			saveAll(dataToSaveSubList);
+			fromIndex += range;
+			toIndex += range;
+		}
+
+		if (fromIndex < dataToSave.size()) {
+			toIndex = dataToSave.size();
+			dataToSaveSubList = dataToSave.subList(fromIndex, toIndex);
+			saveAll(dataToSaveSubList);
+
 		}
 
 	}
-
-	
 
 	/**
 	 * Metodo per costruire una chiave data la classe e un long; Tale metodo
@@ -115,15 +124,35 @@ public class DatastoreLoadAndSave {
 		Key key = KeyFactory.createKey(kind.getSimpleName(), id);
 		return key;
 	}
-	
-	
+
 	/**
-	 * Metodo per costruire una lista di chiavi data la classe, il punto iniziale
-	 * da cui partire per enumerare gli id e il numero totale di chiavi da creare
+	 * Metodo per costruire una chiave data la classe e un long; Tale metodo
+	 * costruisce una chiave simile a quella di default di google Permette però
+	 * di utilizzare un proprio id univoco e non quello fornito da appengine
 	 * 
-	 * @param startPoint indice da cui iniziare a numerare le chiavi
-	 * @param numKeys numero totale di chiavi
-	 * @param kind oggetto class dell'entità cui generare la chiave
+	 * @param kind
+	 *            Stringa corrispondente al class.getSimpleName() dell'entità
+	 *            cui generare la chiave
+	 * @param id
+	 *            univoco.
+	 * @return
+	 */
+	public static Key generateKey(String kind, Long id) {
+		Key key = KeyFactory.createKey(kind, id);
+		return key;
+	}
+
+	/**
+	 * Metodo per costruire una lista di chiavi data la classe, il punto
+	 * iniziale da cui partire per enumerare gli id e il numero totale di chiavi
+	 * da creare
+	 * 
+	 * @param startPoint
+	 *            indice da cui iniziare a numerare le chiavi
+	 * @param numKeys
+	 *            numero totale di chiavi
+	 * @param kind
+	 *            oggetto class dell'entità cui generare la chiave
 	 * @return
 	 */
 	public static List<Key> generateKeys(Long startPoint, Integer numKeys,
@@ -134,15 +163,11 @@ public class DatastoreLoadAndSave {
 		}
 		return keyList;
 	}
-	
-	
-	
-	
+
 	/**
-	 * Il metodo serve per retrocompatibilità, assegna automaticamente il valore 500
-	 * al parametro range.
-	 * Per ulteriori informazioni vedi documentazione del metodo 
-	 * load(Map<String, Object> params, Class<?> type, Integer range)
+	 * Il metodo serve per retrocompatibilità, assegna automaticamente il valore
+	 * 500 al parametro range. Per ulteriori informazioni vedi documentazione
+	 * del metodo load(Map<String, Object> params, Class<?> type, Integer range)
 	 * 
 	 * @param params
 	 * @param type
@@ -155,12 +180,11 @@ public class DatastoreLoadAndSave {
 	/**
 	 * Metodo per caricare uno o più oggetti data una mappa di parametri
 	 * rappresentanti coppie (attributo, valore) che serviranno per filtrare la
-	 * query. Se la mappa è null il
-	 * filtro nn verrà creato e si farà una query che recupererà tutti gli
-	 * oggetti della classe. Il metodo non effettua il lazy loading in quanto
-	 * verrà invocato il metodo size() della lista dei risultati. Questo è
-	 * necessario per poter effettuare salvataggi degli oggetti recuperati in
-	 * momenti immediatamente successivi.
+	 * query. Se la mappa è null il filtro nn verrà creato e si farà una query
+	 * che recupererà tutti gli oggetti della classe. Il metodo non effettua il
+	 * lazy loading in quanto verrà invocato il metodo size() della lista dei
+	 * risultati. Questo è necessario per poter effettuare salvataggi degli
+	 * oggetti recuperati in momenti immediatamente successivi.
 	 * 
 	 * @param Class
 	 *            <?> Tipo degli oggetti restituiti da load
@@ -232,12 +256,11 @@ public class DatastoreLoadAndSave {
 	/**
 	 * Metodo per caricare uno o più oggetti data una mappa di parametri
 	 * rappresentanti coppie (attributo, valore) che serviranno per filtrare la
-	 * query e dato un ordine. Se
-	 * la mappa è null il filtro nn verrà creato e si farà una query che
-	 * recupererà tutti gli oggetti della classe. Il metodo non effettua il lazy
-	 * loading in quanto verrà invocato il metodo size() della lista dei
-	 * risultati. Questo è necessario per poter effettuare salvataggi degli
-	 * oggetti recuperati in momenti immediatamente successivi.
+	 * query e dato un ordine. Se la mappa è null il filtro nn verrà creato e si
+	 * farà una query che recupererà tutti gli oggetti della classe. Il metodo
+	 * non effettua il lazy loading in quanto verrà invocato il metodo size()
+	 * della lista dei risultati. Questo è necessario per poter effettuare
+	 * salvataggi degli oggetti recuperati in momenti immediatamente successivi.
 	 * 
 	 * @param Class
 	 *            <?> Tipo degli oggetti restituiti da load
@@ -319,6 +342,162 @@ public class DatastoreLoadAndSave {
 	}
 
 	/**
+	 * Questo metodo permette di generare un'itaratore sulla lista di entità
+	 * definite dalla query creata con i parametri contenutti nella mappa. Tale
+	 * iteratore permette di effettuare query ogni chiamata di next() (senza
+	 * lazyloading). Tale metodo è utile se vogliamo operare sulle entità a
+	 * blocchi di grandezza range senza necessariamente caricarli prima tutti
+	 * dal datastore
+	 * 
+	 * @param Class
+	 *            <?> Tipo degli oggetti restituiti da load
+	 * @param params
+	 *            Mappa contenente la coppia chiave valore per costruire il
+	 *            filtro la coppia chiave valore della mappa è così formata:
+	 *            chiave è una stringa rappresentnate il nome del campo
+	 *            dell'oggetto il valore corrispondente è il valore che gli
+	 *            oggetti cercati devono matchare il valore può essere di tipo
+	 *            stringa o numerico oppure può essere di tipo
+	 *            {@link OpAndValue} se si desidera effettuare una query in cui
+	 *            non si usa per il campo corrispondente un operatore di
+	 *            eguaglianza
+	 * @param range
+	 *            indica quante entità alla volta devono essere caricate
+	 * @param ordering
+	 *            specifica che tipo di ordinamento devono avere le entità
+	 * 
+	 * @return l'iteratore sulla lista di oggetti specificati nella query.
+	 */
+	@SuppressWarnings("unchecked")
+	public Iterator<Object> loadWithIterator(Map<String, Object> params,
+			Class<?> type, final Integer range, String ordering) {
+
+		final PersistenceManager pm = PMF.get().getPersistenceManager();
+		final Query query = pm.newQuery(type);
+
+		// creiamo il filtro e settiamolo se sono stati passati i parametri
+		if (params != null) {
+
+			String filter = createFilter(params);
+			query.setFilter(filter);
+		}// altrimenti la query viene effettuata senza filtro su tutte le entità
+
+		// Settiamo l'ordine se è stato inserito.
+		if (ordering != null) {
+			ordering.trim();
+			if (!ordering.equals("")) {
+				query.setOrdering(ordering);
+			}
+		}
+
+		// settiamo il numero di elementi per pagina
+		query.setRange(0, range);
+
+		Iterator datastoreIterator = new Iterator<Object>() {
+
+			// Mantiene il riferimento al persistance manager della classe
+			// esterna, serve per poterlo chiudere
+			PersistenceManager pmIterator = pm;
+
+			// lista che mantiene i risultati inizialmente null poichè non sono
+			// stati ancora caricati dati dalla query
+			private List<Object> results = null;
+
+			// query settata dalla classe esterna
+			private Query queryIterator = query;
+
+			// Definiamo il cursore per scorrere gli oggetti della query alla
+			// volta
+			private Map<String, Object> extensionMap = new HashMap<String, Object>();
+			private Cursor cursor;
+
+			// range settato dalla classe esterna indica la grandezza della
+			// pagina di risultati
+			private Integer rangeIterator = range;
+
+			@Override
+			public boolean hasNext() {
+				// Non abbiamo ancora effettuato la query, ossia non è stato
+				// ancora invocato next
+
+				if (results == null)
+					return true;
+				// Ci sono ancora entità da emettere
+				if (results.size() > 0)
+					return true;
+				// Non ci sono più entità
+				if (results.size() == 0)
+					return false;
+				// valore di default
+				return false;
+			}
+
+			@Override
+			public Object next() {
+
+				// variabile che mantiene i risultati da emettere
+				Object returnList = null;
+
+				// Se è invocato per la prima volta next
+				if (results == null) {
+
+					// effettuiamo la query
+					results = (List<Object>) queryIterator.execute();
+					// per annullare il lazy load
+					results.size();
+				}
+
+				// Memorizziamo i risultati nella variabile temporanea, questo è
+				// necessario per poter mantenere l'iteratore uno step avanti in
+				// modo da evitare che ritorni una lista vuota
+				returnList = results;
+
+				// definiamo il cursore, se la query non ha ritornato
+				// risultati
+				// il cursore potrebbe essere null
+				cursor = JDOCursorHelper.getCursor(results);
+
+				// creiamo l'extension map per il cursore
+				extensionMap.put(JDOCursorHelper.CURSOR_EXTENSION, cursor);
+
+				// settiamo il cursore
+				queryIterator.setExtensions(extensionMap);
+
+				// settiamo nuovamente il range
+				queryIterator.setRange(0, rangeIterator);
+
+				// andiamo uno step avanti col cursore
+				results = (List<Object>) queryIterator.execute();
+
+				// controlliamo se con l'ultima query abbiamo finito di scorrere
+				// i dati
+				if (!hasNext())
+					closeDatastore();
+
+				return returnList;
+			}
+
+			@Override
+			/**
+			 * Operazione non supportata
+			 */
+			public void remove() {
+				throw new RuntimeException();
+			}
+
+			private void closeDatastore() {
+				query.closeAll();
+				pmIterator.close();
+
+			}
+
+		};
+
+		return datastoreIterator;
+
+	}
+
+	/**
 	 * Metodo ausiliario per costruire il filtro dati i parametri.
 	 * 
 	 * @param params
@@ -388,13 +567,13 @@ public class DatastoreLoadAndSave {
 	 * creata da GAE. Tipicamente è un long ma può essere una stringa o un
 	 * oggetto a discrezione del programmatore.
 	 * 
-	 * @param <T>TODO: handle exception
-	 *            Tipo dell'oggetto ritornato
+	 * @param <T>TODO: handle exception Tipo dell'oggetto ritornato
 	 * @param type
 	 *            Classe dell'oggetto da cercare
 	 * @param id
 	 *            Identificativo dell'oggetto.
-	 * @return l'oggetto dal datastore, se tale oggetto non è presente allora ritorna null.
+	 * @return l'oggetto dal datastore, se tale oggetto non è presente allora
+	 *         ritorna null.
 	 */
 	public <T> T loadObjectById(Class<T> type, Object id) {
 		PersistenceManager pm = PMF.get().getPersistenceManager();
@@ -404,8 +583,8 @@ public class DatastoreLoadAndSave {
 		try {
 			dataToLoad = pm.getObjectById(type, id);
 		} catch (JDOObjectNotFoundException e) {
-			dataToLoad=null;
-		}finally {
+			dataToLoad = null;
+		} finally {
 			pm.close();
 		}
 
@@ -508,8 +687,14 @@ public class DatastoreLoadAndSave {
 	 *            Lista delle chiavi corrispondenti alle entità da rimuovere
 	 * @param range
 	 *            indica quante entità alla volta devono essere rimosse
+	 * 
+	 * @throws NumberFormatException
+	 *             se il range è un valore minore o uguale a 0
 	 */
 	public void removeAllByKeys(List<Key> keysToRemove, Integer range) {
+
+		if (range <= 0)
+			throw new NumberFormatException();
 
 		List<Key> cursorToRemove = null;
 		// Indice da cui si comincia a cancellare
@@ -762,51 +947,49 @@ public class DatastoreLoadAndSave {
 		return returnList;
 
 	}
-	
-	
-	
+
 	/**
-	 * ------------------------------------------------------------------
-	 * API PER MAP-REDUCE NECESSITANO DELLA LIBRERIA MAPREDUCE DI GOOGLE APPENGINE
+	 * ------------------------------------------------------------------ API
+	 * PER MAP-REDUCE NECESSITANO DELLA LIBRERIA MAPREDUCE DI GOOGLE APPENGINE
 	 * -------------------------------------------------------------------
 	 * 
 	 */
 
-
 	/**
-	 * Il metodo si occupa di recuperare tutte le entità MapRecudeState (100 alla volta)
-	 * e le cancella tutte e 100 in un'unica chiamata al datastore 
+	 * Il metodo si occupa di recuperare tutte le entità MapRecudeState (100
+	 * alla volta) e le cancella tutte e 100 in un'unica chiamata al datastore
 	 * 
 	 */
-	public void deleteAllMapReduceState(){
-		
+	public void deleteAllMapReduceState() {
+
 		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
-		List<MapReduceState> mapsToDelete= new LinkedList<MapReduceState>();
-		List<Key> mapsKeysToDelete= new LinkedList<Key>();
+		List<MapReduceState> mapsToDelete = new LinkedList<MapReduceState>();
+		List<Key> mapsKeysToDelete = new LinkedList<Key>();
 
-
-		//Recupero i primi 100 MapReduceState
+		// Recupero i primi 100 MapReduceState
 		MapReduceState.getMapReduceStates(ds, null, 100, mapsToDelete);
-		
-		while (mapsToDelete.size()>0){
-		
-		//Creo la lista delle chiavi degli oggetti MapReduceState recuperati
-		for(MapReduceState map: mapsToDelete){
 
-			Key key = KeyFactory.createKey("MapReduceState", map.getJobID());
-			mapsKeysToDelete.add(key);
-		}
+		while (mapsToDelete.size() > 0) {
 
-		//Li cancello con un'unica chiamata al datastore
-		ds.delete(mapsKeysToDelete);
-		
-		//Pulisco le liste
-		mapsToDelete.clear();
-		mapsKeysToDelete.clear();
-		
-		//Recupero i successivi 100
-		MapReduceState.getMapReduceStates(ds, null, 100, mapsToDelete);
-		
+			// Creo la lista delle chiavi degli oggetti MapReduceState
+			// recuperati
+			for (MapReduceState map : mapsToDelete) {
+
+				Key key = KeyFactory
+						.createKey("MapReduceState", map.getJobID());
+				mapsKeysToDelete.add(key);
+			}
+
+			// Li cancello con un'unica chiamata al datastore
+			ds.delete(mapsKeysToDelete);
+
+			// Pulisco le liste
+			mapsToDelete.clear();
+			mapsKeysToDelete.clear();
+
+			// Recupero i successivi 100
+			MapReduceState.getMapReduceStates(ds, null, 100, mapsToDelete);
+
 		}
 	}
 
